@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Know Your Device</title>
+    <link rel="shortcut icon" type="jpg" href="Shahid 06.jpg">
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #4A90E2, #9013FE);
+            color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+        .container {
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            box-shadow: 0px 8px 40px rgba(0, 0, 0, 0.3);
+            max-width: 600px;
+            width: 75%; 
+            overflow: hidden; 
+        }
+        button {
+            background-color: #00C853;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 18px;
+            margin: 10px;
+            transition: background-color 0.3s, transform 0.3s;
+            width: 160px;
+        }
+        button:hover {
+            background-color: #00A040;
+            transform: scale(1.05);
+        }
+        .status-message {
+            font-size: 18px;
+            margin-top: 15px;
+            font-weight: bold;
+            color: #ffeb3b;
+        }
+        .info-block {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #fff;
+            border-radius: 10px;
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+        .loading {
+            display: none;
+            margin-top: 15px;
+            font-size: 18px;
+            color: #ffeb3b;
+        }
+        .watch-image {
+            width: 50%;
+            max-width: 175px;
+            margin: 20px auto;
+            display: none;
+            border-radius: 10px;
+            box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Bluetooth Devices</h1>
+        <img src="" alt="Watch Image" class="watch-image" id="watchImage" />
+        <button id="connectBtn">Connect Device</button>
+        <div class="loading" id="loading">Connecting...</div>
+        <div class="status-message" id="status"></div>
+        <div class="info-block" id="deviceInfo" style="display: none;">
+            <h2>Device Information</h2>
+            <p><strong>Name:</strong> <span id="deviceName">Not Connected</span></p>
+            <p><strong>Status:</strong> <span id="deviceStatus">Not Connected</span></p>
+            <p><strong>Battery Level:</strong> <span id="batteryLevel">Unknown</span></p>
+            </div>
+    </div>
+
+    <script>
+   const connectBtn = document.getElementById('connectBtn');
+const deviceNameDisplay = document.getElementById('deviceName');
+const deviceStatusDisplay = document.getElementById('deviceStatus');
+const batteryLevelDisplay = document.getElementById('batteryLevel');
+const deviceInfo = document.getElementById('deviceInfo');
+const statusMessage = document.getElementById('status');
+const watchImage = document.getElementById('watchImage');
+let currentDevice = null;
+
+
+const watchImages = {
+    'Boult Watch SG': '_83fd70f4-41d8-4ad0-8f01-60d23f31c3e9.jpeg',
+    'Watch B': 'path/to/watch-b-image.jpg',
+    'Watch C': 'path/to/watch-c-image.jpg',
+ 
+};
+
+function updateStatus(message, isError = false) {
+    statusMessage.textContent = message;
+    statusMessage.style.color = isError ? 'red' : '#ffeb3b';
+}
+
+
+connectBtn.addEventListener('click', async () => {
+    if (currentDevice) {
+        await disconnectDevice();
+        return;
+    }
+
+    try {
+        updateStatus('Requesting Bluetooth device...');
+        const device = await navigator.bluetooth.requestDevice({
+            acceptAllDevices: true
+        });
+
+        deviceNameDisplay.textContent = device.name;
+        deviceStatusDisplay.textContent = 'Connecting...';
+        deviceInfo.style.display = 'block';
+
+        const server = await device.gatt.connect();
+        currentDevice = device;
+        deviceStatusDisplay.textContent = 'Connected';
+        updateStatus('Connecting to device');
+
+        connectBtn.textContent = 'Disconnect';
+
+        if (watchImages[device.name]) {
+            watchImage.src = watchImages[device.name];
+            watchImage.style.display = 'block'; 
+        } else {
+            watchImage.style.display = 'none'; 
+        }
+
+        const services = await server.getPrimaryServices();
+        console.log('Available services:', services);
+
+        for (const service of services) {
+            console.log(`Service UUID: ${service.uuid}`);
+            const characteristics = await service.getCharacteristics();
+
+            for (const characteristic of characteristics) {
+                console.log(`Characteristic UUID: ${characteristic.uuid}`);
+
+                if (characteristic.uuid === '00002a19-0000-1000-8000-00805f9b34fb') {
+                    const batteryValue = await characteristic.readValue();
+                    const batteryLevel = batteryValue.getUint8(0);
+                    batteryLevelDisplay.textContent = `${batteryLevel}%`;
+                    updateStatus('Battery level updated');
+                }
+            }
+        }
+    } catch (error) {
+        updateStatus(`Error: ${error.message}`, true);
+        console.error(error);
+    }
+});
+
+
+async function disconnectDevice() {
+    if (currentDevice && currentDevice.gatt.connected) {
+        try {
+            await currentDevice.gatt.disconnect();
+            deviceStatusDisplay.textContent = 'Disconnected';
+            updateStatus('Disconnected from device');
+
+            connectBtn.textContent = 'Connect Device';
+            currentDevice = null;
+
+            watchImage.style.display = 'none';
+        } catch (error) {
+            updateStatus(`Error: ${error.message}`, true);
+            console.error(error);
+        }
+    } else {
+        updateStatus('No device connected to disconnect', true);
+    }
+}
+
+    </script>
+</body>
+</html>
